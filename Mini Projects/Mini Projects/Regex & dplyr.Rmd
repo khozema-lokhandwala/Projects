@@ -1,0 +1,166 @@
+---
+title: "DA5020 - Homework 4 Solution"
+author: "Khozema Lokhandwala"
+date: '`r Sys.Date()`'
+output:
+  word_document: default
+  pdf_document: default
+header-includes: \usepackage{framed,color}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+<!-- Put here the link to your own homework repository -->
+- GitHub: [NUDA5020/homework-khozem-lokhandwala](https://github.com/NUDA5020/homework)
+
+## Preparation
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(graphics)
+library(stats)
+library(stringr)
+fmarkets <- read_csv("farmers_market.csv")
+kyfp <- read_excel("kyfprojects.xls")
+```
+
+## Question 1 (20 points)
+
+\begin{shaded}
+Cleanup the \texttt{Facebook} and \texttt{Twitter} column to let them have only the facebook username or twitter handle name. E.g.
+\begin{itemize}
+  \item \texttt{https://www.facebook.com/pages/Cameron-Park-Farmers-Market/97634216535?ref=hl} \\
+  \quad \quad $\to$ \texttt{Cameron-Park-Farmers-Market}
+  \item \texttt{https://twitter.com/FarmMarket125th} $\to$ \texttt{FarmMarket125th}
+  \item \texttt{@21acres} $\to$ \texttt{21acres}
+\end{itemize}
+\end{shaded}
+
+### Solution
+Cleaning up twitter and Facebook data to extract usernames using str_replace_all function
+Using unique function we can detect distinct combinations and refine the regex.
+
+CODE: 
+```{r}
+
+fmarkets1<- fmarkets
+
+fmarkets1<-mutate(fmarkets1, Facebook= str_replace_all(fmarkets1$Facebook,c("(?:(https|http):\\/\\/)?(?:(www|Www).)?(facebook.com|Facebook.com|Facebook|facebook|m.facebook.com|m.facebook)\\/" = "", "(\\.\\.\\.)"="", "(pages|groups)\\/"=" ", "(\\/\\w*)"=" ", "\\#!\\/"="", "\\?\\w*=\\w*" = "", "&\\w*=\\w*" = "")), Twitter=str_replace_all(fmarkets1$Twitter, c("@"="","(?:(https|http):\\/\\/)?(?:(www|Www).)?(facebook.com|twitter.com|Twitter.com|twitter|m.twitter.com|m.twitter)\\/" = "", "Twitter:"="","(\\?ref_src=[\\w%]+)"="")))
+select(fmarkets1,Facebook,Twitter)
+```
+```{r}
+head(unique(fmarkets1$Twitter))
+```
+```{r}
+head(unique(fmarkets1$Facebook))
+```
+
+\vspace{84pt}
+
+## Question 2 (20 points)
+
+\begin{shaded}
+Clean up the \texttt{city} and \texttt{street} column. Make sure the addresses are in a consistent format (e.g. all "and" to "\&"; "St.", "ST.", "Street" all to "St", ...).
+\end{shaded}
+
+### Solution
+Used str_replace_all function again to clean up city and street columns to standard format
+
+CODE:
+```{r}
+
+y2<-mutate(fmarkets1, street = str_replace_all(fmarkets1$street,
+c("\\sand\\s" = " & ","(?:( ST\\.| St\\.|Streets| STREET |Street|Streets\\.| Sts\\.|street|\\sST\\s))" = " St ", "Boulevard|Blvd\\."="Blvd", "Avenue| Ave\\.| ^Av$"=" Ave"," Rd\\.| Rd"=" Road ")),city=str_replace_all(fmarkets1$city,c("^,[\\s]*[\\w]+" = "")))
+select(y2, city, street)
+
+```
+
+\newpage
+
+## Question 3 (20 points)
+
+\begin{shaded}
+Create a new data frame (tibble) that explains the online presence of each state's farmers market. I.e., how many percentage of them have a facebook account? A twitter account? And any of the account?
+\end{shaded}
+
+### Solution
+Used mutate, group_by and summarise function to calculate number of user accounts state-wise.
+Then used str_c function to add a percentage symbol to the values and used round function to round off the values.
+
+CODE:
+```{r}
+
+`Market Presence`<- fmarkets %>%
+  mutate(
+    has_facebook = !is.na(Facebook),
+    has_twitter = !is.na(Twitter),
+    has_youtube_or_other = !is.na(Youtube) | !is.na(OtherMedia)
+  ) %>%
+  group_by(State) %>%
+summarise(count =n(),`Facebook Presence`=str_c(fb_presence=round(sum(has_facebook)*100/count,2)," %"),
+`Twitter Presence`= str_c(twit_presence=round(sum(has_twitter)*100/count,2)," %"),
+`Youtube/Other`=str_c(other_presence=round(sum(has_youtube_or_other)*100/count,2)," %"))
+
+`Market Presence`
+
+```
+
+\vspace{1.5in}
+
+## Qustion 4 (20 points)
+
+\begin{shaded}
+Make the location typess shorter and render a graph of number of markets across location types.
+\end{shaded}
+
+### Solution
+Arranged the count of markets location wise in descending order which was obtained by using mutate, group_by and summarise functions. Then removed rows with "NA". Also used reorder function in ggplot to plot the bars in descending order of count variable(i.e. "-count").
+
+CODE:
+```{r}
+
+unique(fmarkets$locations)
+
+fmarkets$locations<- str_replace_all(fmarkets$Location,c("Private business parking lot"="parking lot", "Federal/State government building grounds"="Fed Govt", "Local government building grounds"="Govt ground", "On a farm from: a barn, a greenhouse, a tent, a stand, etc"="Farm",
+"Faith-based institution \\(e\\.g\\., church, mosque, synagogue, temple\\)"="Religious instn", "Co-located with wholesale market facility" = "Wholesale market side"))
+
+location_wise<- fmarkets %>%
+  mutate(has_markets=!is.na(fmarkets$MarketName))%>%
+  group_by(locations)%>%
+  summarise(count=n())%>%
+  arrange(desc(count))
+u4<- location_wise[!is.na(location_wise$locations),]
+
+ggplot(data = u4,mapping = aes(x = reorder(locations,-count), y=count),na.rm=TRUE) + 
+         geom_bar(stat="Identity") + xlab("Locations") + ylab("Count of Farmers Markets")
+
+```
+
+\vspace{1.5in}
+
+## Qustion 5 (20 points)
+
+\begin{shaded}
+Write code to do sanity check on the \texttt{kyfprojects} data. For example, does \texttt{Program Abbreviation} always match \texttt{Program Name} for all the rows?
+\end{shaded}
+
+### Solution
+Used str_to_title to set the strings in title case first after removing "and" from those sentences. Assumption lies in the fact that "and" does not constitue a part of the abbreviations.
+Used str_replace_all to remove all lower case letters in order to obtain a string of the first initials of every word in each record. This output should be in the same format as that of the `Program Abbreviation` column.
+Now used identical function to compare the two columns.
+The out was FALSE which indicates that `Program Abbreviation` does not match `Program Name` for all rows. Hence to obtain the rows that do not match I used which funtion.
+
+CODE:
+```{r}
+
+kyfp$`Program Name`<- str_to_title(str_replace_all(kyfp$`Program Name`,"\\sand+",""))
+Abbreviations<- mutate(kyfp,Initials=str_replace_all(kyfp$`Program Name`,c("[a-z]+"="","\\s+"="","-"="")))%>%
+select(Initials, `Program Abbreviation`)
+Abbreviations
+identical(Abbreviations$Initials, Abbreviations$`Program Abbreviation`)
+which(Abbreviations$Initials!=Abbreviations$`Program Abbreviation`)
+```
+

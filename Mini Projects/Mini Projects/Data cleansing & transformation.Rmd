@@ -1,0 +1,297 @@
+---
+title: "DA5020 - Homework 5 Solution"
+author: "Khozema Lokhandwala"
+date: '`r Sys.Date()`'
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+header-includes: \usepackage{framed,color}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+<!-- Put here the link to your own homework repository -->
+- GitHub: [NUDA5020/homework-khozem-lokhandwala](https://github.com/NUDA5020/homework-khozem-lokhandwala)
+
+## Preparation
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(graphics)
+library(stats)
+library(stringr)
+library(gridExtra)
+fmarkets <- read_csv("farmers_market.csv")
+```
+
+## Question 1 (20 points)
+
+\begin{shaded}
+Add a new column \texttt{Season1Days} that contains the number of days a market is opened per week (for the dates it is open).
+\end{shaded}
+
+### Solution
+"str_count()" was used to count the number of instances each of the days Monday through Sunday occur in the Season1Time column. An Additional S1DaysOpen column is created to extract which days a week the markets are open in Season1.
+CODE: 
+```{r}
+fmarkets<- fmarkets%>%
+ mutate(Season1Days=str_count(Season1Time, "Mon|MON|TUE|Tue|THU|FRI|SAT|SUN|Wed|Thu|
+                              Fri|Sat|Sun"))%>%
+ select(MarketName,Season1Date,Season1Time,Season1Days,everything())
+
+fmarkets$S1Daysopen<- as.character(str_extract(fmarkets$Season1Time, c("Sat|Sun|Mon|Tue|Wed|Thu|Fri")))
+select(fmarkets,MarketName,Season1Date,Season1Time,Season1Days,S1Daysopen)
+
+```
+
+\vspace{84pt}
+
+## Question 2 (20 points)
+
+\begin{shaded}
+Add a new column \texttt{WeekendOpen} indicating whether a market opens during weekends in \texttt{Season1}.
+\end{shaded}
+
+### Solution
+The "str_detect()" function was used to detect whether the market is open either on a Saturday or Sunday and consequently an "Open" or "Close" indication was given using a ifelse logic.
+
+CODE:
+```{r}
+fmarkets$WeekendOpen<- ifelse(str_detect(fmarkets$Season1Time,"Sat|Sun|SUN|SAT"), "Open on Weekends", 
+"Closed on Weekends")
+select(fmarkets,MarketName,Season1Date,Season1Time,Season1Days,S1Daysopen,WeekendOpen)
+```
+
+\newpage
+
+## Question 3 (20 points)
+
+\begin{shaded}
+Find out which markets close before 6PM, and which open only for fewer than 4 hours a day. For simplicity, consider only \texttt{Season1Time}. For markets with different open hours across a week, use the average length of open hours for the days they actually open.
+\end{shaded}
+
+### Solution
+"str_split()" was used to split the Season1Time column to consider markets that are open for more than once a week. "str_replace_all()" and "as.POSIXct()" was then used to clean up the columns to retain only the opening and closing hours while simultaneously converting these opening and closing hours into datetime object. In order to calculate the average time for which a market is open, durations were created for each day the market is open using the as.duration function.
+Then the means of those duration was taken using rowMeans function.
+
+Next, to filter out the markets which close before 6pm, we say that the closing hours should be less than 18. For the above result I used the hour function to extract the hour from the datetime object and used a logical condition of it being less than 18 which represents 6pm in 24 hour format.
+
+Next, to filter out markets which are open for fewer than 4 hrs per day, I considered the logical condition that "Season1 Avg Hours Open" should be less than 14400seconds duration which is 4 hours.
+
+CODE:
+```{r}
+split<- as.data.frame(str_split(fmarkets$Season1Time,";",simplify=TRUE))
+u<- mutate(split, openhours1=as.POSIXct(str_replace_all(split$V1, c("-(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?"="",
+        "\\w{3}:"="")),format="%I:%M %p"),
+        closehours1=as.POSIXct(str_replace_all(split$V1, 
+"(\\w)+(\\s)?:(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?(\\s)?-",""),format="%I:%M %p"),
+           openhours2=as.POSIXct(str_replace_all(split$V2, c("-(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?"="",
+        "\\w{3}:"="")),format="%I:%M %p"),
+           closehours2=as.POSIXct(str_replace_all(split$V2, 
+"(\\w)+(\\s)?:(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?(\\s)?-",""),format="%I:%M %p"),
+           openhours3=as.POSIXct(str_replace_all(split$V3, c("-(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?"="",
+        "\\w{3}:"="")),format="%I:%M %p"),
+           closehours3=as.POSIXct(str_replace_all(split$V3, 
+"(\\w)+(\\s)?:(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?(\\s)?-",""),format="%I:%M %p"),
+           openhours4=as.POSIXct(str_replace_all(split$V4, c("-(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?"="",
+        "\\w{3}:"="")),format="%I:%M %p"),
+           closehours4=as.POSIXct(str_replace_all(split$V4, 
+"(\\w)+(\\s)?:(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?(\\s)?-",""),format="%I:%M %p"),
+           openhours5=as.POSIXct(str_replace_all(split$V5, c("-(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?"="",
+        "\\w{3}:"="")),format="%I:%M %p"),
+           closehours5=as.POSIXct(str_replace_all(split$V5, 
+"(\\w)+(\\s)?:(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?(\\s)?-",""),format="%I:%M %p"),
+           openhours6=as.POSIXct(str_replace_all(split$V6, c("-(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?"="",
+        "\\w{3}:"="")),format="%I:%M %p"),
+           closehours6=as.POSIXct(str_replace_all(split$V6, 
+"(\\w)+(\\s)?:(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?(\\s)?-",""),format="%I:%M %p"),
+           openhours7=as.POSIXct(str_replace_all(split$V7, c("-(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?"="",
+        "\\w{3}:"="")),format="%I:%M %p"),
+           closehours7=as.POSIXct(str_replace_all(split$V7, 
+"(\\w)+(\\s)?:(\\s)?((\\d)+(:)?(\\d+)?)?(\\s)?(AM|am|PM|pm)?(\\s)?-",""),format="%I:%M %p"))
+
+Season1Hours<-select(u,starts_with("open"),starts_with("close"))
+
+
+Season1Hours$DurationD1<- as.duration(Season1Hours$closehours1-Season1Hours$openhours1)
+Season1Hours$DurationD2<- as.duration(Season1Hours$closehours2-Season1Hours$openhours2)
+Season1Hours$DurationD3<- as.duration(Season1Hours$closehours3-Season1Hours$openhours3)
+Season1Hours$DurationD4<- as.duration(Season1Hours$closehours4-Season1Hours$openhours4)
+Season1Hours$DurationD5<- as.duration(Season1Hours$closehours5-Season1Hours$openhours5)
+Season1Hours$DurationD6<- as.duration(Season1Hours$closehours6-Season1Hours$openhours6)
+Season1Hours$DurationD7<- as.duration(Season1Hours$closehours7-Season1Hours$openhours7)
+MarketDurations<- select(Season1Hours, starts_with("Duration"))
+
+Season1Hours$`Season1 Avg Hours Open`<-as.duration(rowMeans(MarketDurations,na.rm=TRUE))
+fmarkets$`Season1 Avg Hours Open`<- Season1Hours$`Season1 Avg Hours Open`
+
+Marketsbefore6PM<- fmarkets%>%
+  filter(hour(u$closehours1)<18|hour(u$closehours2)<18|hour(u$closehours3)<18|
+           hour(u$closehours4)<18|hour(u$closehours5)<18|hour(u$closehours6)<18|
+           hour(u$closehours7)<18)
+
+Marketsbefore6PM
+
+`Markets open <4hrs`<- fmarkets%>%
+  filter(`Season1 Avg Hours Open`<as.duration(14400))
+
+`Markets open <4hrs`
+
+```
+
+\vspace{1.5in}
+
+## Question 4 (20 points)
+
+\begin{shaded}
+The seasons are not standardized and would make analysis difficult. Create four new columns for four seasons (Spring, Summer, Fall, Winter), indicating whether a market is available in that season. Also, create two additional columns \texttt{HalfYear} and \texttt{YearRound} to identify those who open across seasons. Define “half year” and “year round” on your own terms, but explain them before you write the code (or as comments in your code). (Hint: you may want to create even more auxiliary columns, \texttt{Season1BeginDate} and \texttt{Season1EndDate} for example.)
+\end{shaded}
+
+### Solution
+"str_replace_all()" and mdy was used to clean up the columns to retain only the season begin and end dates while simultaneously converting these begin and end dates into date object. An interval was created using "%--%" operator for which a market is open during a season. For records which only had month names I replaced the months by a random date object containing that month obviously for having a consistency with date format.
+
+For classifying the market availability according to the four seasons, I used "int_overlaps()".
+To make "int_overlap()" work we would need to have both Season intervals as well as Market open intervals to be in the same year hence I assigned the seasons to be in the year 2017. Correspondingly I assigned the markets intervals to be in 2017. For markets whose intervals had cross-over years I used an ifelse loops to correct dates which had the season end date to be less than the season start date.
+
+Later "HalfYear" was defined as markets which are open in exactly 2 seasons and "YearRound" is defined as markets which are open in all four seasons (i.e. Spring, Summer, Fall and Winter).
+Spring season is assumed to last from 1st March till 1st June.
+Summer is assumed to last from 1st June till 1st September.
+Fall is assumed to last from 1st September till 1st December.
+Winter is assumed to last from 1st December till 1st March.
+
+CODE:
+```{r}
+markets<- fmarkets %>% 
+  select(Season1Date,Season1Time, Season2Date, Season2Time, Season3Date, 
+         Season3Time, Season4Date, Season4Time)%>%
+  mutate(Season1BeginDate=mdy(str_replace_all(Season1Date,
+                                            c(" to ?[0-9]{2}/[0-9]{2}/[0-9]{4}"="", 
+                                              "\\sto$"="",
+                                              "\\sto\\s[\\w]+([\\.]?\\s\\d{1,2}[\\s]?,\\s\\d{4})?"=""
+                                              ,"^to(\\s)?([0-9]{2}/[0-9]{2}/[0-9]{4})?"="NA",
+                                              "\\.\\s\\d"="",
+                                              "Date\\s[0-9]{2}/[0-9]{2}/[0-9]{2}"="",
+                                              "Start Date "="",
+                                              "January"="01/01/2017",
+                                              "February"="02/01/2017",
+                                              "March"="03/01/2017",
+                                              "April"="04/01/2017",
+                                              "May"="05/01/2017",
+                                              "June"="06/01/2017",
+                                              "July"="07/01/2017",
+                                              "August"="08/01/2017",
+                                              "September"="09/01/2017",
+                                              "October"="10/01/2017",
+                                              "November"="11/01/2017",
+                                              "December"="12/01/2017"))),
+         Season1EndDate=mdy(str_replace_all(Season1Date,
+                                          c(" ?([0-9]{1,2}/[0-9]{1,2}/[0-9]{4}) to"="", 
+                                            "^to "="",
+                                            "[\\w]+(\\s)?([\\.]?\\s\\d{1,2}[\\s]?,[\\s]?\\d{4})?(\\d{1,2})?(\\s)+to"=""
+                                            ,"([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})(\\s)?to$"="NA",
+                                            "^Start\\sDate\\s[0-9]{1,2}/[0-9]{1,2}/\\sEnd Date"="",
+                                            "January"="01/01/2017",
+                                            "February"="02/01/2017",
+                                            "March"="03/01/2017",
+                                            "April"="04/01/2017",
+                                            "May"="05/01/2017",
+                                            "June"="06/01/2017",
+                                            "July"="07/01/2017",
+                                            "August"="08/01/2017",
+                                            "September"="09/01/2017",
+                                            "October"="10/01/2017",
+                                            "November"="11/01/2017",
+                                            "December"="12/01/2017"))),
+            SeasonInterval=(Season1BeginDate %--% Season1EndDate))
+
+year(markets$Season1BeginDate)<-2017
+year(markets$Season1EndDate)<- 2017
+markets$Season1EndDate = as.Date(ifelse(markets$Season1EndDate < markets$Season1BeginDate,
+                                 markets$Season1EndDate + dyears(1),
+                                 markets$Season1EndDate),origin="1970-01-01")
+Spring_start<- mdy("03/01/17")
+
+summerstart<-mdy("06/01/17")
+
+fallstart<- mdy("09/01/17")
+
+winterstart<- mdy("12/01/17")
+
+winter<- interval(winterstart, Spring_start+years(1))
+spring<- interval(Spring_start, summerstart)
+summer<- interval(summerstart, fallstart)
+fall<- interval(fallstart, winterstart)
+
+markets$Spring<- (ifelse(int_overlaps(markets$SeasonInterval,spring),"Open","Closed"))
+markets$Summer<- (ifelse(int_overlaps(markets$SeasonInterval,summer),"Open","Closed"))
+markets$Fall<- (ifelse(int_overlaps(markets$SeasonInterval,fall),"Open","Closed"))
+markets$Winter<- (ifelse(int_overlaps(markets$SeasonInterval,winter),"Open","Closed"))
+
+markets$HalfYear<-
+  ifelse(markets$Spring=="Open" & markets$Summer=="Open", markets$HalfYear<-"Open",
+      ifelse(markets$Spring=="Open" & markets$Winter=="Open",markets$HalfYear<-"Open",
+       ifelse(markets$Summer=="Open" & markets$Fall=="Open" ,markets$HalfYear<-"Open",
+       ifelse(markets$Fall=="Open" & markets$Winter=="Open" ,markets$HalfYear<-"Open",
+        ifelse(markets$Summer=="Open" & markets$Winter=="Open" ,markets$HalfYear<-"Open",
+         ifelse(markets$Spring=="Open" & markets$Fall=="Open" ,markets$HalfYear<-"Open",
+       markets$HalfYear<-"Closed"))))))
+
+markets$YearRound<-
+  ifelse(markets$Spring=="Open" & markets$Summer=="Open" & markets$Fall=="Open" & markets$Winter=="Open", 
+         markets$YearRound<-"Open",markets$YearRound<-"Closed")
+
+fmarkets$Spring<- markets$Spring
+fmarkets$Summer<- markets$Summer
+fmarkets$Fall<- markets$Fall
+fmarkets$Winter<- markets$Winter
+fmarkets$HalfYear<- markets$HalfYear
+fmarkets$YearRound<- markets$YearRound
+
+select(fmarkets,MarketName,Season1Date,Season1Time,Season1Days,S1Daysopen,WeekendOpen,Spring,Summer,Fall,Winter,HalfYear,YearRound,`Season1 Avg Hours Open`)
+```
+
+\vspace{1.5in}
+
+## Question 5 (20 points)
+
+\begin{shaded}
+Open question: explore the new variables you just created. Aggregate them at different geographic levels, or some other categorical variable. What can you discover?
+\end{shaded}
+
+### Solution
+Plotting the Markets available in four seasons we see that in winter, most markets are closed.
+On plotting the number of days that markets are open we see that, on an average most markets are open atleast 1 day in a week and almost 1/4th of the markets are open on Saturdays. Out of the markets which are open 2 days in a week majority of them are open on weekends.
+
+From the plot of "Season1BeginDate"" and "Season1EndDate" it is seen that majority of the farmers markets begin in the months of May and June and a majority of the markets end in the Fall season(i.e between September and December).
+
+CODE:
+```{r}
+Complete<- fmarkets%>%
+  select(MarketName, Season1Date,Season1Time,Season1Days,S1Daysopen,WeekendOpen,Spring, 
+         Summer, Fall, Winter, HalfYear, YearRound, `Season1 Avg Hours Open`,everything())
+Complete
+
+s<-ggplot(data=Complete)+geom_bar(mapping=aes(x=Spring,fill=WeekendOpen))+ylab("Count of Markets")
+s2<-ggplot(data=Complete)+geom_bar(mapping=aes(x=Summer,fill=WeekendOpen))+ylab("Count of Markets")
+f<-ggplot(data=Complete)+geom_bar(mapping=aes(x=Fall,fill=WeekendOpen))+ylab("Count of Markets")
+w<-ggplot(data=Complete)+geom_bar(mapping=aes(x=Winter,fill=WeekendOpen))+ylab("Count of Markets")
+grid.arrange(s, s2, f, w, ncol=2)
+
+S1D<-ggplot(data=Complete)+geom_bar(mapping=aes(x=Season1Days,fill=WeekendOpen))
+S1DO<-ggplot(data=Complete)+geom_bar(mapping=aes(x=S1Daysopen,fill=WeekendOpen))
+grid.arrange(S1D, S1DO, ncol=2)
+monthopen<-(ggplot(data=markets) 
+              + geom_bar(mapping=aes(x=month(Season1BeginDate,label=TRUE),fill=HalfYear))
+                + labs(x="Season 1 Begin Date",y="Count of Markets")
+                + ggtitle("Month Farmers Markets Open"))
+monthclose<-(ggplot(data=markets)
+             + geom_bar(mapping=aes(x=month(Season1EndDate,label=TRUE),fill=HalfYear))
+              + labs(x="Season 1 End Date",y="Count of Markets")
+                + ggtitle("Month Farmers Markets Close"))
+grid.arrange(monthopen,monthclose , ncol=2)
+```
